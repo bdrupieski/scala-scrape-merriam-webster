@@ -12,7 +12,8 @@ import scala.collection.JavaConversions.collectionAsScalaIterable
 object ScrapeWordOfTheDay {
   def main(args: Array[String]) {
 
-    val startingDate = new DateTime(2014, 1, 1, 0, 0)
+    val year: Int = 2013
+    val startingDate = new DateTime(year, 1, 1, 0, 0)
     val endingDate = startingDate.plusYears(1)
 
     val numberOfDays = Days.daysBetween(startingDate, endingDate).getDays
@@ -20,21 +21,25 @@ object ScrapeWordOfTheDay {
 
     val outLines = new ArrayBuffer[String]()
 
-    for(d <- dates) {
+    for (d <- dates) {
       println(s"processing $d")
       outLines.append(getLineForDay(d))
-      Thread.sleep(1000)
     }
 
-    val outWriter = new PrintWriter("2014wordsoftheday.txt")
+    val outWriter = new PrintWriter(f"${year}wordsoftheday.txt")
     outLines.foreach(outWriter.write)
     outWriter.close()
+  }
+
+  def getDocumentFromUrl(url: String): Document = {
+    Thread.sleep(1000)
+    Jsoup.connect(url).get()
   }
 
   def getLineForDay(date: DateTime): String = {
     val wotdUrl = f"http://www.merriam-webster.com/word-of-the-day/${date.getYear}%d/${date.getMonthOfYear}%02d/${date.getDayOfMonth}%02d/"
 
-    val doc: Document = Jsoup.connect(wotdUrl).get()
+    val doc: Document = getDocumentFromUrl(wotdUrl)
     val wordContainer: Elements = doc.select(".wod_container")
 
     val word = wordContainer.select(".wod_headword").text
@@ -75,7 +80,7 @@ object ScrapeWordOfTheDay {
   def getEtymologyAndSynonyms(word: String): (String, String) = {
 
     val wordDefUrl = f"http://www.merriam-webster.com/dictionary/$word"
-    val doc: Document = Jsoup.connect(wordDefUrl).get()
+    val doc: Document = getDocumentFromUrl(wordDefUrl)
 
     val etymologyElements = doc.select(".etymology")
     etymologyElements.select("a").unwrap()
@@ -84,8 +89,8 @@ object ScrapeWordOfTheDay {
     synonymsElements.select("a").unwrap()
     synonymsElements.select(".accordion-heading").remove()
 
-    var etymology: String = etymologyElements.html.replace("\n", "")
-    var synonyms: String = synonymsElements.html.replace("\n", "")
+    val etymology: String = etymologyElements.html.replace("\n", "")
+    val synonyms: String = synonymsElements.html.replace("\n", "")
 
     (etymology, synonyms)
   }
