@@ -23,7 +23,7 @@ object ScrapeWordOfTheDay {
     for(d <- dates) {
       println(s"processing $d")
       outLines.append(getLineForDay(d))
-      Thread.sleep(500)
+      Thread.sleep(1000)
     }
 
     val outWriter = new PrintWriter("2014wordsoftheday.txt")
@@ -32,9 +32,9 @@ object ScrapeWordOfTheDay {
   }
 
   def getLineForDay(date: DateTime): String = {
-    val urlToGet = f"http://www.merriam-webster.com/word-of-the-day/${date.getYear}%d/${date.getMonthOfYear}%02d/${date.getDayOfMonth}%02d/"
+    val wotdUrl = f"http://www.merriam-webster.com/word-of-the-day/${date.getYear}%d/${date.getMonthOfYear}%02d/${date.getDayOfMonth}%02d/"
 
-    val doc: Document = Jsoup.connect(urlToGet).get()
+    val doc: Document = Jsoup.connect(wotdUrl).get()
     val wordContainer: Elements = doc.select(".wod_container")
 
     val word = wordContainer.select(".wod_headword").text
@@ -42,8 +42,16 @@ object ScrapeWordOfTheDay {
     val partOfSpeech = wordContainer.select(".wod_pos").text
     val defs = getHtmlDefinitionsFromBlock(wordContainer.select(".d").head)
     val examples = wordContainer.select(".wod_example_sentences").html.replace("\n", "")
+    val (etymology, synonyms) = getEtymologyAndSynonyms(word)
 
-    s"$word ~ $word $pronunciation <br><br> $partOfSpeech <br><br> $defs <br><br><br> $examples ${sys.props("line.separator")}"
+    s"$word~" +
+      s"$word $pronunciation <br><br>" +
+      s"$partOfSpeech <br><br>" +
+      s"$defs <br><br><br>" +
+      s"$examples <br><br><br>" +
+      s"$etymology <br><br><br>" +
+      s"$synonyms <br><br><br>" +
+      s"${sys.props("line.separator")}"
   }
 
   def getHtmlDefinitionsFromBlock(definitionElement: Element): String = {
@@ -60,5 +68,25 @@ object ScrapeWordOfTheDay {
       }
       stringBuilder.toString()
     }
+  }
+
+  // Etymology and synonyms are not found on the WOTD page.
+  // They must be retrieved from the definition page for that word.
+  def getEtymologyAndSynonyms(word: String): (String, String) = {
+
+    val wordDefUrl = f"http://www.merriam-webster.com/dictionary/$word"
+    val doc: Document = Jsoup.connect(wordDefUrl).get()
+
+    val etymologyElements = doc.select(".etymology")
+    etymologyElements.select("a").unwrap()
+
+    val synonymsElements = doc.select(".synonyms-reference")
+    synonymsElements.select("a").unwrap()
+    synonymsElements.select(".accordion-heading").remove()
+
+    var etymology: String = etymologyElements.html.replace("\n", "")
+    var synonyms: String = synonymsElements.html.replace("\n", "")
+
+    (etymology, synonyms)
   }
 }
