@@ -12,7 +12,7 @@ import scala.collection.JavaConversions.collectionAsScalaIterable
 object ScrapeWordOfTheDay {
   def main(args: Array[String]) {
 
-    val year: Int = 2013
+    val year: Int = 2007
     val startingDate = new DateTime(year, 1, 1, 0, 0)
     val endingDate = startingDate.plusYears(1)
 
@@ -32,8 +32,19 @@ object ScrapeWordOfTheDay {
   }
 
   def getDocumentFromUrl(url: String): Document = {
-    Thread.sleep(1000)
-    Jsoup.connect(url).get()
+    retry[Document](3) {
+      Thread.sleep(1000)
+      Jsoup.connect(url).get()
+    }
+  }
+
+  @annotation.tailrec
+  def retry[T](n: Int)(fn: => T): T = {
+    util.Try { fn } match {
+      case util.Success(x) => x
+      case _ if n > 1 => { println("retrying..."); retry(n - 1)(fn); }
+      case util.Failure(e) => throw e
+    }
   }
 
   def getLineForDay(date: DateTime): String = {
